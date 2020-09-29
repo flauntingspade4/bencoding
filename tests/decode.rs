@@ -1,78 +1,62 @@
-use bencoding::BenCodeAble;
+use bencoding::from_str;
 
 #[test]
 fn decode_string() {
-    let mut encoded = "4:spam".to_string();
+    let encoded = "4:spam";
+    let decoded: String = from_str(encoded).unwrap();
 
-    assert_eq!(
-        "spam".to_string(),
-        String::de_bencode(&mut encoded).unwrap().0
-    );
+    assert_eq!("spam".to_string(), decoded);
 
-    let mut encoded = "0:".to_string();
+    let encoded = "0:";
+    let decoded: String = from_str(encoded).unwrap();
 
-    assert_eq!("".to_string(), String::de_bencode(&mut encoded).unwrap().0);
+    assert_eq!("".to_string(), decoded);
 
-    let mut encoded = "4:eggs".to_string();
+    let encoded = "4:eggs";
+    let decoded: String = from_str(encoded).unwrap();
 
-    assert_eq!(
-        "eggs".to_string(),
-        String::de_bencode(&mut encoded).unwrap().0
-    );
+    assert_eq!("eggs".to_string(), decoded);
 }
 
 #[test]
 fn decode_int() {
-    let mut encoded = "i52e".to_string();
+    let encoded = "i52e";
 
-    assert_eq!(52, i32::de_bencode(&mut encoded).unwrap().0);
+    assert_eq!(52, from_str(encoded).unwrap());
 
-    let mut encoded = "i-52e".to_string();
+    let encoded = "i-52e";
 
-    assert_eq!(-52, i32::de_bencode(&mut encoded).unwrap().0);
+    assert_eq!(-52, from_str(encoded).unwrap());
 
-    let mut encoded = "i0e".to_string();
+    let encoded = "i0e";
 
-    assert_eq!(0, i32::de_bencode(&mut encoded).unwrap().0);
+    assert_eq!(0, from_str(encoded).unwrap());
 
-    let mut encoded = "i-0e".to_string();
+    let encoded = "i-0e";
 
-    assert_eq!(0, i32::de_bencode(&mut encoded).unwrap().0);
+    assert_eq!(0, from_str(encoded).unwrap());
 }
 
 #[test]
 fn decode_vec() {
-    /*let mut encoded = "le".to_string();
+    let encoded = "le";
+    let decoded: Vec<String> = from_str(encoded).unwrap();
 
-    assert_eq!(
-        Vec::<String>::new(),
-        Vec::<String>::de_bencode(&mut encoded).unwrap().0
-    );
+    assert_eq!(Vec::<String>::new(), decoded);
 
-    let mut encoded = "l4:spam4:eggse".to_string();
+    let encoded = "l4:spam4:eggse";
+    let decoded: Vec<String> = from_str(encoded).unwrap();
 
-    assert_eq!(
-        vec!["spam".to_string(), "eggs".to_string()],
-        Vec::<String>::de_bencode(&mut encoded).unwrap().0
-    );
+    assert_eq!(vec!["spam".to_string(), "eggs".to_string()], decoded);
 
-    let mut encoded = "li5ei-15ei25ee".to_string();
+    let encoded = "li5ei-15ei25ee";
+    let decoded: Vec<i64> = from_str(encoded).unwrap();
 
-    assert_eq!(
-        vec![5, -15, 25],
-        Vec::<i64>::de_bencode(&mut encoded).unwrap().0
-    );*/
+    assert_eq!(vec![5, -15, 25], decoded,);
 
-    // let mut encoded = "llie7ie2iile12ie53ii".to_string();
+    let encoded = "lli7ei2eeli12ei53eee";
 
-    let vec: Vec<Vec<i64>> = vec![vec![7, 2], vec![12, 53]];
+    let decoded: Vec<Vec<i64>> = from_str(encoded).unwrap();
 
-    let mut encoded = vec.bencode();
-
-    println!("{}", encoded);
-
-    assert_eq!(
-        vec![vec![7, 2], vec![12, 53]],
-        Vec::<Vec<i64>>::de_bencode(&mut encoded).unwrap().0
-    );
+    assert_eq!(vec![vec![7, 2], vec![12, 53]], decoded);
 }
