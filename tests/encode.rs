@@ -48,3 +48,36 @@ fn encode_vec() {
 
     assert_eq!("lli16ei3eeli12ei25eee", vec.bencode());
 }
+
+#[test]
+fn encode_dict() {
+    use bencoding::{dict, Dict};
+
+    let dict = dict!(
+        "cow".to_string(),
+        "moo".to_string(),
+        "spam".to_string(),
+        "eggs".to_string()
+    );
+
+    assert_eq!("d3:cow3:moo4:spam4:eggse".to_string(), dict.bencode());
+
+    let dict = dict!("spam".to_string(), vec!["a".to_string(), "b".to_string()]);
+
+    assert_eq!("d4:spaml1:a1:bee".to_string(), dict.bencode());
+
+    let dict = dict!(
+        "publisher".to_string(),
+        "bob".to_string(),
+        "publisher-webpage".to_string(),
+        "www.example.com".to_string(),
+        "publisher.location".to_string(),
+        "home".to_string()
+    );
+
+    assert_eq!(
+        "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee"
+            .to_string(),
+        dict.bencode()
+    );
+}

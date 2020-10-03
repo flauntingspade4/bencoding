@@ -60,3 +60,38 @@ fn decode_vec() {
 
     assert_eq!(vec![vec![7, 2], vec![12, 53]], decoded);
 }
+
+#[test]
+fn decode_dict() {
+    use bencoding::{dict, Dict};
+
+    let dict = dict!(
+        "cow".to_string(),
+        "moo".to_string(),
+        "spam".to_string(),
+        "eggs".to_string()
+    );
+
+    assert_eq!(dict, from_str("d3:cow3:moo4:spam4:eggse").unwrap());
+
+    let dict = dict!("spam".to_string(), vec!["a".to_string(), "b".to_string()]);
+
+    assert_eq!(dict, from_str("d4:spaml1:a1:bee").unwrap());
+
+    let dict = dict!(
+        "publisher".to_string(),
+        "bob".to_string(),
+        "publisher-webpage".to_string(),
+        "www.example.com".to_string(),
+        "publisher.location".to_string(),
+        "home".to_string()
+    );
+
+    assert_eq!(
+        dict,
+        from_str(
+            "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee"
+        )
+        .unwrap()
+    );
+}
