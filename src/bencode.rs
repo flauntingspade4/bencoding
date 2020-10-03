@@ -4,8 +4,8 @@ use crate::{
 };
 
 macro_rules! impl_bencoding {
-    ($type:ty) => {
-        impl BenCodeAble for $type {
+    ($($type:ty),*) => {
+        $(impl BenCodeAble for $type {
             type Output = $type;
 
             fn bencode(&self) -> String {
@@ -27,9 +27,13 @@ macro_rules! impl_bencoding {
                 };
                 return Ok(number);
             }
-        }
+        })*
     };
 }
+
+impl_bencoding!(i64, i32, i16, i8);
+
+impl_bencoding!(u32, u16, u8);
 
 /// A trait describing a type's ability to be bencoded
 /// implemented for strings, integers, and vec of the
@@ -77,12 +81,9 @@ impl BenCodeAble for String {
         return format!("{}:{}", self.len(), self);
     }
     fn de_bencode(d: &mut Deserializer) -> Result<Self::Output> {
-        // First, find the colon location (And check it exists)
         match d.input.find(':') {
             Some(count) => {
-                // Split so it's "4" and ":test", at the location where ':' is found
                 let (length, rest_of_string) = d.input.split_at(count);
-                // Parse "4" into 4, so we know how many characters to take
                 let len: usize = match length.parse::<usize>() {
                     // Add one to help ignore the added space from ':'
                     Ok(t) => t + 1,
@@ -106,12 +107,9 @@ impl BenCodeAble for &str {
         return format!("{}:{}", self.len(), self);
     }
     fn de_bencode(d: &mut Deserializer) -> Result<Self::Output> {
-        // First, find the colon location (And check it exists)
         match d.input.find(':') {
             Some(count) => {
-                // Split so it's "4" and ":test", at the location where ':' is found
                 let (length, rest_of_string) = d.input.split_at(count);
-                // Parse "4" into 4, so we know how many characters to take
                 let len: usize = match length.parse::<usize>() {
                     // Add one to help ignore the added space from ':'
                     Ok(t) => t + 1,
@@ -127,15 +125,6 @@ impl BenCodeAble for &str {
         }
     }
 }
-
-impl_bencoding!(i64);
-impl_bencoding!(i32);
-impl_bencoding!(i16);
-impl_bencoding!(i8);
-
-impl_bencoding!(u32);
-impl_bencoding!(u16);
-impl_bencoding!(u8);
 
 impl<T: BenCodeAble<Output = T>> BenCodeAble for Vec<T> {
     type Output = Vec<T>;
@@ -153,7 +142,6 @@ impl<T: BenCodeAble<Output = T>> BenCodeAble for Vec<T> {
             d.input = "";
             return Ok(Vec::new());
         }
-        println!("S at beginning \"{}\"", d.input);
         let mut to_return = Vec::new();
         match d.next_char() {
             Ok(c) => {
@@ -178,7 +166,7 @@ impl<T: BenCodeAble<Output = T>> BenCodeAble for Vec<T> {
 }
 
 pub struct Deserializer<'de> {
-    input: &'de str,
+    pub input: &'de str,
 }
 
 impl<'de> Deserializer<'de> {
@@ -197,19 +185,18 @@ where
     if deserializer.input.is_empty() {
         Ok(t)
     } else {
-        println!("Trailing chracters \"{}\"", deserializer.input);
         Err(TrailingCharacters)
     }
 }
 
 impl<'de> Deserializer<'de> {
     // Look at the first character in the input without consuming it.
-    fn peek_char(&mut self) -> Result<char> {
+    pub fn peek_char(&mut self) -> Result<char> {
         self.input.chars().next().ok_or(EoF)
     }
 
     // Consume the first character in the input.
-    fn next_char(&mut self) -> Result<char> {
+    pub fn next_char(&mut self) -> Result<char> {
         let ch = self.peek_char()?;
         self.input = &self.input[ch.len_utf8()..];
         Ok(ch)
