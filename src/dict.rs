@@ -42,8 +42,9 @@ where
             data: Vec::with_capacity(capacity),
         }
     }
-    fn ben_sort(&mut self) {
-        self.data.sort_by(|first, second| first.0.cmp(&second.0));
+    pub fn ben_sort(&mut self) {
+        self.data
+            .sort_unstable_by(|first, second| first.0.cmp(&second.0));
     }
 }
 
@@ -99,9 +100,9 @@ impl<T: BenCodeAble<Output = T> + Clone + Display> core::fmt::Display for Dict<T
         write!(f, "{{ ")?;
 
         for i in self.data.iter() {
-            write!(f, "\"{}\" => {}", i.0, i.1)?;
+            write!(f, "\"{}\" => {}, ", i.0, i.1)?;
         }
-        write!(f, " }}")?;
+        write!(f, "}}")?;
 
         Ok(())
     }
@@ -112,9 +113,9 @@ impl<T: BenCodeAble<Output = T> + Clone + Debug> core::fmt::Debug for Dict<T> {
         write!(f, "{{ ")?;
 
         for i in self.data.iter() {
-            write!(f, "\"{}\" => {:?}", i.0, i.1)?;
+            write!(f, "\"{}\" => {:?}, ", i.0, i.1)?;
         }
-        write!(f, " }}")?;
+        write!(f, "}}")?;
 
         Ok(())
     }

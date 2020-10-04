@@ -65,20 +65,24 @@ fn decode_vec() {
 fn decode_dict() {
     use bencoding::{dict, Dict};
 
-    let dict = dict!(
+    let encoded = "d3:cow3:moo4:spam4:eggse";
+    let decoded = dict!(
         "cow".to_string(),
         "moo".to_string(),
         "spam".to_string(),
         "eggs".to_string()
     );
 
-    assert_eq!(dict, from_str("d3:cow3:moo4:spam4:eggse").unwrap());
+    assert_eq!(decoded, from_str(encoded).unwrap());
 
-    let dict = dict!("spam".to_string(), vec!["a".to_string(), "b".to_string()]);
+    let encoded = "d4:spaml1:a1:bee";
+    let decoded = dict!("spam".to_string(), vec!["a".to_string(), "b".to_string()]);
 
-    assert_eq!(dict, from_str("d4:spaml1:a1:bee").unwrap());
+    assert_eq!(decoded, from_str(encoded).unwrap());
 
-    let dict = dict!(
+    let encoded =
+        "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee";
+    let decoded = dict!(
         "publisher".to_string(),
         "bob".to_string(),
         "publisher-webpage".to_string(),
@@ -87,11 +91,16 @@ fn decode_dict() {
         "home".to_string()
     );
 
-    assert_eq!(
-        dict,
-        from_str(
-            "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee"
-        )
-        .unwrap()
+    assert_eq!(decoded, from_str(encoded).unwrap());
+
+    let encoded = "d5:closeli42ei43ei44ee4:openli24ei34ei44eee";
+    // In this order, as close is before open
+    let decoded: Dict<Vec<i32>> = dict!(
+        "close".to_string(),
+        vec![42, 43, 44],
+        "open".to_string(),
+        vec![24, 34, 44]
     );
+
+    assert_eq!(decoded, from_str(encoded).unwrap())
 }
