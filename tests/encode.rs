@@ -80,4 +80,16 @@ fn encode_dict() {
             .to_string(),
         dict.bencode()
     );
+
+    let dict = dict!(
+        "open".to_string(),
+        vec![24, 34, 44],
+        "close".to_string(),
+        vec![42, 43, 44]
+    );
+
+    assert_eq!(
+        "d5:closeli42ei43ei44ee4:openli24ei34ei44eee".to_string(),
+        dict.bencode()
+    );
 }
