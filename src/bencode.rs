@@ -33,7 +33,7 @@ macro_rules! impl_bencoding {
 
 impl_bencoding!(i64, i32, i16, i8);
 
-impl_bencoding!(u32, u16, u8);
+impl_bencoding!(u64, u32, u16, u8);
 
 /// A trait describing a type's ability to be bencoded
 /// implemented for strings, integers, and vec of the
