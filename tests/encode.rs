@@ -1,3 +1,5 @@
+mod structs;
+
 #[test]
 fn encode_string() {
     let string = "spam".to_string();
@@ -46,49 +48,26 @@ fn encode_vec() {
 
     assert_eq!("lli16ei3eeli12ei25eee", bencoding::to_string(&vec).unwrap());
 }
-/*
+
 #[test]
-fn encode_dict() {
-    use bencoding::{dict, Dict};
+fn person_encode() {
+    use structs::{Person, Publisher};
 
-    let dict = dict!(
-        "cow".to_string(),
-        "moo".to_string(),
-        "spam".to_string(),
-        "eggs".to_string()
+    let person = Person::new("test_01".to_string(), "Male".to_string(), 50);
+
+    assert_eq!(
+        "d4:name7:test_016:gender4:Male3:agei50ee",
+        bencoding::to_string(&person).unwrap()
     );
 
-    assert_eq!("d3:cow3:moo4:spam4:eggse".to_string(), dict.bencode());
-
-    let dict = dict!("spam".to_string(), vec!["a".to_string(), "b".to_string()]);
-
-    assert_eq!("d4:spaml1:a1:bee".to_string(), dict.bencode());
-
-    let dict = dict!(
-        "publisher".to_string(),
+    let pulisher = Publisher::new(
         "bob".to_string(),
-        "publisher-webpage".to_string(),
         "www.example.com".to_string(),
-        "publisher.location".to_string(),
-        "home".to_string()
+        "home".to_string(),
     );
 
     assert_eq!(
-        "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee"
-            .to_string(),
-        dict.bencode()
-    );
-
-    let dict = dict!(
-        "open".to_string(),
-        vec![24, 34, 44],
-        "close".to_string(),
-        vec![42, 43, 44]
-    );
-
-    assert_eq!(
-        "d5:closeli42ei43ei44ee4:openli24ei34ei44eee".to_string(),
-        dict.bencode()
+        "d4:name3:bob17:publisher_webpage15:www.example.com18:publisher_location4:homee",
+        bencoding::to_string(&pulisher).unwrap()
     );
 }
-*/
