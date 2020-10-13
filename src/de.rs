@@ -397,11 +397,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening brace of the map.
-        if self.next_char()? == '{' {
+        if self.next_char()? == 'd' {
             // Give the visitor access to each entry of the map.
             let value = visitor.visit_map(&mut self)?;
             // Parse the closing brace of the map.
-            if self.next_char()? == '}' {
+            if self.next_char()? == 'e' {
                 Ok(value)
             } else {
                 Err(DeBencodingError::NoFoundClosingDeliminator)
