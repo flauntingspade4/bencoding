@@ -49,31 +49,6 @@ pub trait BenCodeAble<'a, 'de: 'a> {
     fn de_bencode(d: &'de mut Deserializer) -> Result<Self::Output>;
 }
 
-/*impl<'de, T: BenCodeAble<'de, Output = T>> BenCodeAble<'de> for BenCodeType<T> {
-    type Output = BenCodeType<T>;
-
-    fn bencode(&self) -> String {
-        match self {
-            BenCodedString(s) => s.bencode(),
-            BenCodedInt(i) => i.bencode(),
-            BenCodedList(l) => l.bencode(),
-        }
-    }
-
-    fn de_bencode(d: &'de mut Deserializer) -> Result<Self::Output> {
-        use BenCodeType::*;
-
-        match d.input.chars().next() {
-            Some(c) => match c {
-                'i' => Ok(BenCodedInt(i64::de_bencode(d)?)),
-                'l' => Ok(BenCodedList(Vec::<T>::de_bencode(d)?)),
-                _ => Ok(BenCodedString(String::de_bencode(d)?)),
-            },
-            None => Err(TrailingCharacters),
-        }
-    }
-}*/
-
 impl<'a, 'de: 'a> BenCodeAble<'a, 'de> for String {
     type Output = String;
 

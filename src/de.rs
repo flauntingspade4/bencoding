@@ -82,7 +82,7 @@ impl<'de> Deserializer<'de> {
             },
             None => return Err(DeBencodingError::NoFoundClosingDeliminator),
         };
-        return Ok(number);
+        Ok(number)
     }
 
     // Parse a possible minus sign followed by a group of decimal digits as a
@@ -93,9 +93,9 @@ impl<'de> Deserializer<'de> {
     {
         if self.peek_char().unwrap() == '-' {
             self.next_char()?;
-            return Ok(-self.parse_unsigned()?);
+            Ok(-self.parse_unsigned()?)
         } else {
-            return self.parse_unsigned();
+            self.parse_unsigned()
         }
     }
 
@@ -120,17 +120,6 @@ impl<'de> Deserializer<'de> {
             }
             None => Err(DeBencodingError::NoFoundColon),
         }
-        /*if self.next_char()? != '"' {
-            return Err(DeBencodingError::ExpectedString);
-        }
-        match self.input.find('"') {
-            Some(len) => {
-                let s = &self.input[..len];
-                self.input = &self.input[len + 1..];
-                Ok(s)
-            }
-            None => Err(DeBencodingError::Eof),
-        }*/
     }
 }
 
@@ -397,11 +386,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening brace of the map.
-        if self.next_char()? == '{' {
+        if self.next_char()? == 'd' {
             // Give the visitor access to each entry of the map.
             let value = visitor.visit_map(&mut self)?;
             // Parse the closing brace of the map.
-            if self.next_char()? == '}' {
+            if self.next_char()? == 'e' {
                 Ok(value)
             } else {
                 Err(DeBencodingError::NoFoundClosingDeliminator)

@@ -11,7 +11,6 @@
 //! assert_eq!("i5e", example_int.bencode()); // 5 is encoded as "i5e" */
 //! ```
 
-mod dict;
 pub mod err;
 
 
@@ -20,12 +19,3 @@ mod ser;
 
 pub use de::from_str;
 pub use ser::to_string;
-
-/*
-/// An enum for the different kinds of bencoding, can be safely ignored
-pub enum BenCodeType<T: BenCodeAble> {
-    BenCodedString(String),
-    BenCodedInt(i64),
-    BenCodedList(Vec<T>),
-}
-*/

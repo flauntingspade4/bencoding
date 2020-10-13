@@ -1,3 +1,5 @@
+mod structs;
+
 #[test]
 fn decode_string() {
     let encoded = "4:spam";
@@ -59,52 +61,21 @@ fn decode_vec() {
     assert_eq!(vec![vec![7, 2], vec![12, 53]], decoded);
 }
 
-/*#[test]
-fn decode_dict() {
-    use bencoding::{dict, Dict};
-
-    let encoded = "d3:cow3:moo4:spam4:eggse";
-    let decoded = dict!(
-        "cow".to_string(),
-        "moo".to_string(),
-        "spam".to_string(),
-        "eggs".to_string()
-    );
-
-    assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
-
-    let encoded = "d4:spaml1:a1:bee";
-    let decoded = dict!("spam".to_string(), vec!["a".to_string(), "b".to_string()]);
-
-    assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
-
-    let encoded =
-        "d9:publisher3:bob17:publisher-webpage15:www.example.com18:publisher.location4:homee";
-    let decoded = dict!(
-        "publisher".to_string(),
-        "bob".to_string(),
-        "publisher-webpage".to_string(),
-        "www.example.com".to_string(),
-        "publisher.location".to_string(),
-        "home".to_string()
-    );
-
-    assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
-
-    let encoded = "d5:closeli42ei43ei44ee4:openli24ei34ei44eee";
-    // In this order, as close is before open
-    let decoded: Dict<Vec<i32>> = dict!(
-        "close".to_string(),
-        vec![42, 43, 44],
-        "open".to_string(),
-        vec![24, 34, 44]
-    );
-
-    assert_eq!(decoded, bencoding::from_str(encoded).unwrap())
-}
-*/
-
 #[test]
 fn person_decode() {
-    
+    use structs::{Person, Publisher};
+
+    let encoded = "d4:name7:test_016:gender4:Male3:agei50ee";
+    let decoded = Person::new("test_01".to_string(), "Male".to_string(), 50);
+
+    assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
+
+    let encoded = "d4:name7:test_016:gender4:Male3:agei50ee";
+    let decoded = Publisher::new(
+        "bob".to_string(),
+        "www.example.com".to_string(),
+        "home".to_string(),
+    );
+
+    assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
 }

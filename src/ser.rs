@@ -3,15 +3,10 @@ use serde::{ser, Serialize};
 use crate::err::{DeBencodingError, Result};
 
 pub struct Serializer {
-    // This string starts empty and JSON is appended as values are serialized.
+    // This string starts empty and bencode is appended as values are serialized.
     output: String,
 }
 
-// By convention, the public API of a Serde serializer is one or more `to_abc`
-// functions such as `to_string`, `to_bytes`, or `to_writer` depending on what
-// Rust types the serializer is able to produce as output.
-//
-// This basic serializer supports only `to_string`.
 pub fn to_string<T>(value: &T) -> Result<String>
 where
     T: Serialize,
@@ -48,13 +43,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type SerializeStructVariant = Self;
 
     // Here we go with the simple methods. The following 12 methods receive one
-    // of the primitive types of the data model and map it to JSON by appending
+    // of the primitive types of the data model and map it to bencode by appending
     // into the output string.
     fn serialize_bool(self, _v: bool) -> Result<()> {
         panic!("This version of bencoding doesn't support bools");
     }
 
-    // JSON does not distinguish between different sizes of integers, so all
+    // Bencode does not distinguish between different sizes of integers, so all
     // signed integers will be serialized the same and all unsigned integers
     // will be serialized the same. Other formats, especially compact binary
     // formats, may need independent logic for the different sizes.
@@ -90,7 +85,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        self.output += &v.to_string();
+        self.output += &format!("i{}e", v);
         Ok(())
     }
 
@@ -106,12 +101,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     // Serialize a char as a single-character string. Other formats may
     // represent this differently.
     fn serialize_char(self, v: char) -> Result<()> {
-        self.serialize_str(&v.to_string())
+        self.output += &format!("1:{}", v);
+        Ok(())
     }
 
-    // This only works for strings that don't require escape sequences but you
-    // get the idea. For example it would emit invalid JSON if the input string
-    // contains a '"' character.
     fn serialize_str(self, v: &str) -> Result<()> {
         self.output += &format!("{}:{}", v.len(), v);
         Ok(())
@@ -129,7 +122,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         seq.end()
     }
 
-    // An absent optional is represented as the JSON `null`.
+    // An absent optional is represented as the bencode `null`.
     fn serialize_none(self) -> Result<()> {
         self.serialize_unit()
     }
@@ -137,7 +130,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     // A present optional is represented as just the contained value. Note that
     // this is a lossy representation. For example the values `Some(())` and
     // `None` both serialize as just `null`. Unfortunately this is typically
-    // what people expect when working with JSON. Other formats are encouraged
+    // what people expect when working with bencode. Other formats are encouraged
     // to behave more intelligently if possible.
     fn serialize_some<T>(self, value: &T) -> Result<()>
     where
@@ -147,13 +140,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     // In Serde, unit means an anonymous value containing no data. Map this to
-    // JSON as `null`.
+    // bencode as `null`.
     fn serialize_unit(self) -> Result<()> {
         panic!("Units are not supported in this version of bencoding");
     }
 
     // Unit struct means a named value containing no data. Again, since there is
-    // no data, map this to JSON as `null`. There is no need to serialize the
+    // no data, map this to bencode as `null`. There is no need to serialize the
     // name in most formats.
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
         self.serialize_unit()
@@ -185,7 +178,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     // methods) refer exclusively to the "externally tagged" enum
     // representation.
     //
-    // Serialize this to JSON in externally tagged form as `{ NAME: VALUE }`.
+    // Serialize this to bencode in externally tagged form as `{ NAME: VALUE }`.
     fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
@@ -205,10 +198,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     //
     // The start of the sequence, each value, and the end are three separate
     // method calls. This one is responsible only for serializing the start,
-    // which in JSON is `[`.
+    // which in bencode is `[`.
     //
     // The length of the sequence may or may not be known ahead of time. This
-    // doesn't make a difference in JSON because the length is not represented
+    // doesn't make a difference in bencode because the length is not represented
     // explicitly in the serialized form. Some serializers may only be able to
     // support sequences for which the length is known up front.
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -216,7 +209,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(self)
     }
 
-    // Tuples look just like sequences in JSON. Some formats may be able to
+    // Tuples look just like sequences in bencode. Some formats may be able to
     // represent tuples more efficiently by omitting the length, since tuple
     // means that the corresponding `Deserialize implementation will know the
     // length without needing to look at the serialized data.
@@ -224,7 +217,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.serialize_seq(Some(len))
     }
 
-    // Tuple structs look just like sequences in JSON.
+    // Tuple structs look just like sequences in bencode.
     fn serialize_tuple_struct(
         self,
         _name: &'static str,
@@ -233,7 +226,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.serialize_seq(Some(len))
     }
 
-    // Tuple variants are represented in JSON as `{ NAME: [DATA...] }`. Again
+    // Tuple variants are represented in bencode as `{ NAME: [DATA...] }`. Again
     // this method is only responsible for the externally tagged representation.
     fn serialize_tuple_variant(
         self,
@@ -245,13 +238,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         panic!("Tuples are not supported in this version of bencoding");
     }
 
-    // Maps are represented in JSON as `{ K: V, K: V, ... }`.
+    // Maps are represented in bencode as `{ K: V, K: V, ... }`.
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         self.output += "d";
         Ok(self)
     }
 
-    // Structs look just like maps in JSON. In particular, JSON requires that we
+    // Structs look just like maps in bencode. In particular, bencode requires that we
     // serialize the field names of the struct. Other formats may be able to
     // omit the field names when serializing structs because the corresponding
     // Deserialize implementation is required to know what the keys are without
@@ -260,7 +253,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.serialize_map(Some(len))
     }
 
-    // Struct variants are represented in JSON as `{ NAME: { K: V, ... } }`.
+    // Struct variants are represented in bencode as `{ NAME: { K: V, ... } }`.
     // This is the externally tagged representation.
     fn serialize_struct_variant(
         self,
@@ -372,17 +365,17 @@ impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
 //
 // There is a third optional method on the `SerializeMap` trait. The
 // `serialize_entry` method allows serializers to optimize for the case where
-// key and value are both available simultaneously. In JSON it doesn't make a
+// key and value are both available simultaneously. In bencode it doesn't make a
 // difference so the default behavior for `serialize_entry` is fine.
 impl<'a> ser::SerializeMap for &'a mut Serializer {
     type Ok = ();
     type Error = DeBencodingError;
 
-    // The Serde data model allows map keys to be any serializable type. JSON
+    // The Serde data model allows map keys to be any serializable type. bencode
     // only allows string keys so the implementation below will produce invalid
-    // JSON if the key serializes as something other than a string.
+    // bencode if the key serializes as something other than a string.
     //
-    // A real JSON serializer would need to validate that map keys are strings.
+    // A real bencode serializer would need to validate that map keys are strings.
     // This can be done by using a different Serializer to serialize the key
     // (instead of `&mut **self`) and having that other serializer only
     // implement `serialize_str` and return an DeBencodingError on any other data type.
