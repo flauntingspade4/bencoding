@@ -82,7 +82,7 @@ impl<'de> Deserializer<'de> {
             },
             None => return Err(DeBencodingError::NoFoundClosingDeliminator),
         };
-        return Ok(number);
+        Ok(number)
     }
 
     // Parse a possible minus sign followed by a group of decimal digits as a
@@ -93,9 +93,9 @@ impl<'de> Deserializer<'de> {
     {
         if self.peek_char().unwrap() == '-' {
             self.next_char()?;
-            return Ok(-self.parse_unsigned()?);
+            Ok(-self.parse_unsigned()?)
         } else {
-            return self.parse_unsigned();
+            self.parse_unsigned()
         }
     }
 
@@ -120,17 +120,6 @@ impl<'de> Deserializer<'de> {
             }
             None => Err(DeBencodingError::NoFoundColon),
         }
-        /*if self.next_char()? != '"' {
-            return Err(DeBencodingError::ExpectedString);
-        }
-        match self.input.find('"') {
-            Some(len) => {
-                let s = &self.input[..len];
-                self.input = &self.input[len + 1..];
-                Ok(s)
-            }
-            None => Err(DeBencodingError::Eof),
-        }*/
     }
 }
 
