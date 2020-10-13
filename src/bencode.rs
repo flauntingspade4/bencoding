@@ -1,17 +1,17 @@
 use crate::{
     err::{DeBencodingError::*, Result},
-    BenCodeType::{self, *},
+    // BenCodeType::{self, *},
 };
 
 macro_rules! impl_bencoding {
     ($($type:ty),*) => {
-        $(impl BenCodeAble for $type {
+        $(impl<'a, 'de: 'a> BenCodeAble<'a, 'de> for $type {
             type Output = $type;
 
             fn bencode(&self) -> String {
                 return format!("i{}e", self);
             }
-            fn de_bencode(d: &mut Deserializer) -> Result<Self::Output> {
+            fn de_bencode(d: &'de mut Deserializer) -> Result<Self::Output> {
                 let number = match d.input.find('e') {
                     Some(count) => match d.input.get(1..count) {
                         Some(t) => match t.parse::<Self>() {
@@ -38,7 +38,7 @@ impl_bencoding!(u64, u32, u16, u8);
 /// A trait describing a type's ability to be bencoded
 /// implemented for strings, integers, and vec of the
 /// aforementioned types
-pub trait BenCodeAble {
+pub trait BenCodeAble<'a, 'de: 'a> {
     /// The output of [de_bencode](#tymethod.de_bencode)
     type Output;
 
@@ -46,41 +46,41 @@ pub trait BenCodeAble {
     fn bencode(&self) -> String;
 
     /// Turn a string into self
-    fn de_bencode(d: &mut Deserializer) -> Result<Self::Output>;
+    fn de_bencode(d: &'de mut Deserializer) -> Result<Self::Output>;
 }
 
-impl<T: BenCodeAble<Output = T>> BenCodeAble for BenCodeType<T> {
+/*impl<'de, T: BenCodeAble<'de, Output = T>> BenCodeAble<'de> for BenCodeType<T> {
     type Output = BenCodeType<T>;
 
     fn bencode(&self) -> String {
         match self {
-            BenCodedString(s) => return s.bencode(),
-            BenCodedInt(i) => return i.bencode(),
-            BenCodedList(l) => return l.bencode(),
+            BenCodedString(s) => s.bencode(),
+            BenCodedInt(i) => i.bencode(),
+            BenCodedList(l) => l.bencode(),
         }
     }
 
-    fn de_bencode(d: &mut Deserializer) -> Result<Self::Output> {
+    fn de_bencode(d: &'de mut Deserializer) -> Result<Self::Output> {
         use BenCodeType::*;
 
         match d.input.chars().next() {
             Some(c) => match c {
-                'i' => return Ok(BenCodedInt(i64::de_bencode(d)?)),
-                'l' => return Ok(BenCodedList(Vec::<T>::de_bencode(d)?)),
-                _ => return Ok(BenCodedString(String::de_bencode(d)?)),
+                'i' => Ok(BenCodedInt(i64::de_bencode(d)?)),
+                'l' => Ok(BenCodedList(Vec::<T>::de_bencode(d)?)),
+                _ => Ok(BenCodedString(String::de_bencode(d)?)),
             },
-            None => return Err(TrailingCharacters),
+            None => Err(TrailingCharacters),
         }
     }
-}
+}*/
 
-impl BenCodeAble for String {
+impl<'a, 'de: 'a> BenCodeAble<'a, 'de> for String {
     type Output = String;
 
     fn bencode(&self) -> String {
         return format!("{}:{}", self.len(), self);
     }
-    fn de_bencode(d: &mut Deserializer) -> Result<Self::Output> {
+    fn de_bencode(d: &'de mut Deserializer) -> Result<Self::Output> {
         match d.input.find(':') {
             Some(count) => {
                 let (length, rest_of_string) = d.input.split_at(count);
@@ -93,40 +93,40 @@ impl BenCodeAble for String {
                 let to_return = String::from(&rest_of_string[1..len]);
                 // Remove the used string
                 d.input = &d.input[count + len..];
-                return Ok(to_return);
+                Ok(to_return)
             }
-            None => return Err(NoFoundColon),
+            None => Err(NoFoundColon),
         }
     }
 }
 
-impl BenCodeAble for &str {
-    type Output = String;
+impl<'a, 'de: 'a> BenCodeAble<'a, 'de> for &str {
+    type Output = &'de str;
 
     fn bencode(&self) -> String {
         return format!("{}:{}", self.len(), self);
     }
-    fn de_bencode(d: &mut Deserializer) -> Result<Self::Output> {
+    fn de_bencode<'b>(d: &'de mut Deserializer) -> Result<Self::Output> {
         match d.input.find(':') {
             Some(count) => {
-                let (length, rest_of_string) = d.input.split_at(count);
-                let len: usize = match length.parse::<usize>() {
+                let (length, rest_of) = d.input.split_at(count);
+                let len: usize = match &length.parse::<usize>() {
                     // Add one to help ignore the added space from ':'
                     Ok(t) => t + 1,
                     Err(_) => return Err(ParseIntError),
                 };
                 // Make to_return between the colon, and the end of the second string
-                let to_return = String::from(&rest_of_string[1..len]);
+                let to_return = &rest_of[1..len];
                 // Remove the used string
                 d.input = &d.input[count + len..];
-                return Ok(to_return);
+                Ok(to_return)
             }
-            None => return Err(NoFoundColon),
+            None => Err(NoFoundColon),
         }
     }
 }
 
-impl<T: BenCodeAble<Output = T>> BenCodeAble for Vec<T> {
+impl<'a, 'de: 'a, T: BenCodeAble<'a, 'de, Output = T>> BenCodeAble<'a, 'de> for Vec<T> {
     type Output = Vec<T>;
 
     fn bencode(&self) -> String {
@@ -137,7 +137,7 @@ impl<T: BenCodeAble<Output = T>> BenCodeAble for Vec<T> {
         to_return += "e";
         to_return
     }
-    fn de_bencode(d: &mut Deserializer) -> Result<Self::Output> {
+    fn de_bencode(d: &'de mut Deserializer) -> Result<Self::Output> {
         if d.input == "le" {
             d.input = "";
             return Ok(Vec::new());
@@ -150,7 +150,7 @@ impl<T: BenCodeAble<Output = T>> BenCodeAble for Vec<T> {
                 }
             }
             Err(_) => {
-                return Err(EoF);
+                return Err(Eof);
             }
         }
         while let Ok(c) = d.peek_char() {
@@ -176,9 +176,9 @@ impl<'de> Deserializer<'de> {
 }
 
 /// Converts a &str to T, where T implements [BenCodeAble](../bencoding/trait.BenCodeAble.html)
-pub fn from_str<'a, T>(s: &'a str) -> Result<T>
+pub fn from_str<'a, 'de: 'a, T>(s: &'de str) -> Result<T>
 where
-    T: BenCodeAble<Output = T>,
+    T: BenCodeAble<'a, 'de, Output = T>,
 {
     let mut deserializer = Deserializer::from_str(s);
     let t = T::de_bencode(&mut deserializer)?;
@@ -192,7 +192,7 @@ where
 impl<'de> Deserializer<'de> {
     // Look at the first character in the input without consuming it.
     pub fn peek_char(&mut self) -> Result<char> {
-        self.input.chars().next().ok_or(EoF)
+        self.input.chars().next().ok_or(Eof)
     }
 
     // Consume the first character in the input.

@@ -5,3 +5,7 @@ authors = ["flauntingspade4 <48335751+flauntingspade4@users.noreply.github.com>"
 edition = "2018"
 
 [dependencies]
+serde = "1.0.116"
+
+[dev-dependencies]
+serde = { version = "1.0.116", features = ["derive"] }

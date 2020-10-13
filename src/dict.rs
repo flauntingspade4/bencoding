@@ -1,3 +1,4 @@
+/*
 use core::fmt::{Debug, Display};
 
 use crate::{
@@ -23,23 +24,28 @@ macro_rules! dict {
 /// around Vec<(String, T)>. It's worth mentioning
 /// that [de_bencode](../bencoding/trait.BenCodeAble.html#tymethod.de_bencode)ing this Dict will automatically
 /// sort it for you.
-pub struct Dict<T>
+pub struct Dict<'de, T>
 where
-    T: BenCodeAble + Clone,
+    T: BenCodeAble<'de> + Clone,
 {
     pub data: Vec<(String, T)>,
+    phantom: std::marker::PhantomData<&'de T>,
 }
 
-impl<T> Dict<T>
+impl<'de, T> Dict<'de, T>
 where
-    T: BenCodeAble<Output = T> + Clone,
+    T: BenCodeAble<'de, Output = T> + Clone,
 {
     pub fn new() -> Self {
-        Self { data: Vec::new() }
+        Self {
+            data: Vec::new(),
+            phantom: std::marker::PhantomData,
+        }
     }
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             data: Vec::with_capacity(capacity),
+            phantom: std::marker::PhantomData,
         }
     }
     pub fn ben_sort(&mut self) {
@@ -48,11 +54,17 @@ where
     }
 }
 
-impl<T> BenCodeAble for Dict<T>
+impl<'de, T: BenCodeAble<'de, Output = T> + Clone> Default for Dict<'de, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<'de, T> BenCodeAble<'de> for Dict<'de, T>
 where
-    T: BenCodeAble<Output = T> + Clone,
+    T: BenCodeAble<'de, Output = T> + Clone,
 {
-    type Output = Dict<T>;
+    type Output = Dict<'de, T>;
 
     fn bencode(&self) -> String {
         let mut to_return = String::with_capacity(2 + self.data.len() * 2);
@@ -66,7 +78,7 @@ where
         to_return
     }
 
-    fn de_bencode(d: &mut crate::bencode::Deserializer) -> Result<Self::Output> {
+    fn de_bencode(d: &'de mut crate::bencode::Deserializer) -> Result<Self::Output> {
         if d.input == "de" {
             return Ok(Self::new());
         }
@@ -78,7 +90,7 @@ where
                 }
             }
             Err(_) => {
-                return Err(EoF);
+                return Err(Eof);
             }
         }
         while let Ok(c) = d.peek_char() {
@@ -95,7 +107,7 @@ where
     }
 }
 
-impl<T: BenCodeAble<Output = T> + Clone + Display> core::fmt::Display for Dict<T> {
+impl<'de, T: BenCodeAble<'de, Output = T> + Clone + Display> core::fmt::Display for Dict<'de, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{ ")?;
 
@@ -108,7 +120,7 @@ impl<T: BenCodeAble<Output = T> + Clone + Display> core::fmt::Display for Dict<T
     }
 }
 
-impl<T: BenCodeAble<Output = T> + Clone + Debug> core::fmt::Debug for Dict<T> {
+impl<'de, T: BenCodeAble<'de, Output = T> + Clone + Debug> core::fmt::Debug for Dict<'de, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{ ")?;
 
@@ -121,13 +133,14 @@ impl<T: BenCodeAble<Output = T> + Clone + Debug> core::fmt::Debug for Dict<T> {
     }
 }
 
-impl<T: BenCodeAble<Output = T> + Clone + PartialEq> PartialEq for Dict<T> {
+impl<'de, T: BenCodeAble<'de, Output = T> + Clone + PartialEq> PartialEq for Dict<'de, T> {
     fn eq(&self, other: &Self) -> bool {
         for (index, item) in self.data.iter().enumerate() {
             if item.0 != other.data[index].0 || item.1 != other.data[index].1 {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
+*/
