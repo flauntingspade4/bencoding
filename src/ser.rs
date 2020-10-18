@@ -65,8 +65,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.serialize_i64(i64::from(v))
     }
 
-    // Not particularly efficient but this is example code anyway. A more
-    // performant approach would be to use the `itoa` crate.
     fn serialize_i64(self, v: i64) -> Result<()> {
         self.output += &format!("i{}e", v);
         Ok(())

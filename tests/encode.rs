@@ -51,7 +51,7 @@ fn encode_vec() {
 
 #[test]
 fn person_encode() {
-    use structs::{Person, Publisher};
+    use structs::{Person, Publisher, StructContainingVec};
 
     let person = Person::new("test_01".to_string(), "Male".to_string(), 50);
 
@@ -69,5 +69,12 @@ fn person_encode() {
     assert_eq!(
         "d4:name3:bob17:publisher_webpage15:www.example.com18:publisher_location4:homee",
         bencoding::to_string(&pulisher).unwrap()
+    );
+
+    let vstruct = StructContainingVec::from(vec![5, 24, 16, 178]);
+
+    assert_eq!(
+        "d3:vecli5ei24ei16ei178eee",
+        bencoding::to_string(&vstruct).unwrap()
     );
 }

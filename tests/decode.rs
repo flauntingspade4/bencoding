@@ -63,19 +63,24 @@ fn decode_vec() {
 
 #[test]
 fn person_decode() {
-    use structs::{Person, Publisher};
+    use structs::{Person, Publisher, StructContainingVec};
 
     let encoded = "d4:name7:test_016:gender4:Male3:agei50ee";
     let decoded = Person::new("test_01".to_string(), "Male".to_string(), 50);
 
     assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
 
-    let encoded = "d4:name7:test_016:gender4:Male3:agei50ee";
+    let encoded = "d4:name3:bob17:publisher_webpage15:www.example.com18:publisher_location4:homee";
     let decoded = Publisher::new(
         "bob".to_string(),
         "www.example.com".to_string(),
         "home".to_string(),
     );
+
+    assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
+
+    let encoded = "d3:vecli5ei24ei16ei178eee";
+    let decoded = StructContainingVec::from(vec![5, 24, 16, 178]);
 
     assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
 }

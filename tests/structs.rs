@@ -32,3 +32,14 @@ impl Publisher {
         }
     }
 }
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct StructContainingVec {
+    pub vec: Vec<i64>,
+}
+
+impl From<Vec<i64>> for StructContainingVec {
+    fn from(vec: Vec<i64>) -> Self {
+        Self { vec }
+    }
+}
