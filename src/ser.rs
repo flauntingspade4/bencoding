@@ -7,6 +7,10 @@ pub struct Serializer {
     output: String,
 }
 
+/// Converts a value to it's bencoded version
+///
+/// # Errors
+/// fails if serialization fails
 pub fn to_string<T>(value: &T) -> Result<String>
 where
     T: Serialize,

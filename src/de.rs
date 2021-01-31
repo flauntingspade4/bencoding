@@ -8,7 +8,7 @@ use crate::err::{DeBencodingError, Result};
 pub struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
-    input: &'de str,
+    input: &'de [u8],
 }
 
 impl<'de> Deserializer<'de> {
@@ -16,22 +16,44 @@ impl<'de> Deserializer<'de> {
     // That way basic use cases are satisfied by something like
     // `serde_json::from_str(...)` while advanced use cases that require a
     // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
-    pub fn from_str(input: &'de str) -> Self {
+    pub const fn from_str(input: &'de str) -> Self {
+        Self::from_bytes(input.as_bytes())
+    }
+
+    pub const fn from_bytes(input: &'de [u8]) -> Self {
         Deserializer { input }
     }
 }
 
-// By convention, the public API of a Serde deserializer is one or more
-// `from_xyz` methods such as `from_str`, `from_bytes`, or `from_reader`
-// depending on what Rust types the deserializer is able to consume as input.
-//
-// This basic deserializer supports only `from_str`.
-pub fn from_str<'a, T>(s: &'a str) -> Result<T>
+/// Attempts to read a value from a given string
+///
+/// # Errors
+/// Fails if deserialization fails
+pub fn from_str<'de, T>(s: &'de str) -> Result<T>
 where
-    T: Deserialize<'a>,
+    T: Deserialize<'de>,
 {
     let mut deserializer = Deserializer::from_str(s);
     let t = T::deserialize(&mut deserializer)?;
+    if deserializer.input.is_empty() {
+        Ok(t)
+    } else {
+        Err(DeBencodingError::TrailingCharacters)
+    }
+}
+
+/// A convenience function for building a deserializer
+/// and deserializing a value of type `T` from bytes.
+///
+/// # Errors
+/// Fails if deserialization fails
+pub fn from_bytes<'de, T>(s: &'de [u8]) -> Result<T>
+where
+    T: de::Deserialize<'de>,
+{
+    let mut deserializer = Deserializer::from_bytes(s);
+    let t = T::deserialize(&mut deserializer)?;
+
     if deserializer.input.is_empty() {
         Ok(t)
     } else {
@@ -44,14 +66,14 @@ where
 // parsing library to help implement their Serde deserializer.
 impl<'de> Deserializer<'de> {
     // Look at the first character in the input without consuming it.
-    fn peek_char(&mut self) -> Result<char> {
-        self.input.chars().next().ok_or(DeBencodingError::Eof)
+    fn peek_char(&mut self) -> Result<&u8> {
+        self.input.iter().next().ok_or(DeBencodingError::Eof)
     }
 
     // Consume the first character in the input.
-    fn next_char(&mut self) -> Result<char> {
-        let ch = self.peek_char()?;
-        self.input = &self.input[ch.len_utf8()..];
+    fn next_char(&mut self) -> Result<u8> {
+        let ch = *self.peek_char()?;
+        self.input = &self.input[1..];
         Ok(ch)
     }
 
@@ -69,9 +91,9 @@ impl<'de> Deserializer<'de> {
     where
         T: FromStr,
     {
-        let number = match self.input.find('e') {
+        let number = match self.input.iter().position(|b| b == &b'e') {
             Some(count) => match self.input.get(1..count) {
-                Some(t) => match t.parse::<T>() {
+                Some(v) => match std::str::from_utf8(v).unwrap().parse::<T>() {
                     Ok(number) => {
                         self.input = &self.input[1 + count..];
                         number
@@ -91,7 +113,7 @@ impl<'de> Deserializer<'de> {
     where
         T: Neg<Output = T> + FromStr + Neg<Output = T>,
     {
-        if self.peek_char().unwrap() == '-' {
+        if self.peek_char().unwrap() == &b'-' {
             self.next_char()?;
             Ok(-self.parse_unsigned()?)
         } else {
@@ -99,15 +121,17 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+
+    // Not actually used, due to lifetime issues
+    /*
     // Parse a string until the next '"' character.
     //
-    // Makes no attempt to handle escape sequences. What did you expect? This is
-    // example code!
-    fn parse_string(&mut self) -> Result<&'de str> {
-        match self.input.find(':') {
+    // Makes no attempt to handle escape sequences.
+    fn parse_string(&'de mut self) -> Result<&'de str> {
+        match self.input.iter().position(|b| b == &b':') {
             Some(count) => {
                 let (length, rest_of) = self.input.split_at(count);
-                let len: usize = match &length.parse::<usize>() {
+                let len = match std::str::from_utf8(length).unwrap().parse::<usize>() {
                     // Add one to help ignore the added space from ':'
                     Ok(t) => t + 1,
                     Err(_) => return Err(DeBencodingError::ParseIntError),
@@ -116,11 +140,11 @@ impl<'de> Deserializer<'de> {
                 let to_return = &rest_of[1..len];
                 // Remove the used string
                 self.input = &self.input[count + len..];
-                Ok(to_return)
+                Ok(std::str::from_utf8(to_return).unwrap())
             }
             None => Err(DeBencodingError::NoFoundColon),
         }
-    }
+    }*/
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
@@ -134,10 +158,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match self.peek_char()? {
-            '0'..='9' => self.deserialize_str(visitor),
-            'i' => self.deserialize_i64(visitor),
-            'l' => self.deserialize_seq(visitor),
-            'd' => self.deserialize_map(visitor),
+            &b'0' | &b'1' | &b'2' | &b'3' | &b'4' | &b'5' | &b'6' | &b'7' | &b'8' | &b'9' => {
+                self.deserialize_str(visitor)
+            }
+            &b'i' => self.deserialize_i64(visitor),
+            &b'l' => self.deserialize_seq(visitor),
+            &b'd' => self.deserialize_map(visitor),
             _ => Err(DeBencodingError::UnexpectedCharType('a')),
         }
     }
@@ -239,7 +265,25 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_borrowed_str(self.parse_string()?)
+        let string = {
+            match self.input.iter().position(|b| b == &b':') {
+                Some(count) => {
+                    let (length, rest_of) = self.input.split_at(count);
+                    let len = match std::str::from_utf8(length).unwrap().parse::<usize>() {
+                        // Add one to help ignore the added space from ':'
+                        Ok(t) => t + 1,
+                        Err(_) => return Err(DeBencodingError::ParseIntError),
+                    };
+                    // Make to_return between the colon, and the end of the second string
+                    let to_return = &rest_of[1..len];
+                    // Remove the used string
+                    self.input = &self.input[count + len..];
+                    Ok(std::str::from_utf8(to_return).unwrap())
+                }
+                None => Err(DeBencodingError::NoFoundColon),
+            }
+        }?;
+        visitor.visit_borrowed_str(string)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -277,8 +321,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if self.input.starts_with("null") {
+        if self.input.starts_with(b"null") {
             self.input = &self.input["null".len()..];
+            //self.input = self.input.split_off("null".len());
             visitor.visit_none()
         } else {
             visitor.visit_some(self)
@@ -290,8 +335,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if self.input.starts_with("null") {
+        if self.input.starts_with(b"null") {
             self.input = &self.input["null".len()..];
+            //self.input = self.input.split_off("null".len());
             visitor.visit_unit()
         } else {
             Err(DeBencodingError::ExpectedNull)
@@ -323,12 +369,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        // Parse the opening bracket of the sequence.
-        if self.next_char()? == 'l' {
+        // Parse the opening character of the sequence.
+        if self.next_char()? == b'l' {
             // Give the visitor access to each element of the sequence.
             let value = visitor.visit_seq(&mut self)?;
-            // Parse the closing bracket of the sequence.
-            if self.next_char()? == 'e' {
+            // Parse the closing character of the sequence.
+            if self.next_char()? == b'e' {
                 Ok(value)
             } else {
                 Err(DeBencodingError::NoFoundClosingDeliminator)
@@ -372,11 +418,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening brace of the map.
-        if self.next_char()? == 'd' {
+        if self.next_char()? == b'd' {
             // Give the visitor access to each entry of the map.
             let value = visitor.visit_map(&mut self)?;
             // Parse the closing brace of the map.
-            if self.next_char()? == 'e' {
+            if self.next_char()? == b'e' {
                 Ok(value)
             } else {
                 Err(DeBencodingError::NoFoundClosingDeliminator)
@@ -428,7 +474,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     // Like `deserialize_any` but indicates to the `Deserializer` that it makes
-    // no difference which `Visitor` method is called because the data is
+    // no difference which `Visitor<'de>` method is called because the data is
     // ignored.
     //
     // Some deserializers are able to implement this more efficiently than
@@ -454,11 +500,11 @@ impl<'de> SeqAccess<'de> for Deserializer<'de> {
         T: de::DeserializeSeed<'de>,
     {
         // Check if there are no more elements.
-        if self.peek_char()? == 'e' {
+        if self.peek_char()? == &b'e' {
             return Ok(None);
         }
         // Deserialize an array element.
-        seed.deserialize(&mut *self).map(Some)
+        seed.deserialize(self).map(Some)
     }
 }
 
@@ -470,7 +516,7 @@ impl<'de> MapAccess<'de> for Deserializer<'de> {
         K: de::DeserializeSeed<'de>,
     {
         // Check if there are no more entries.
-        if self.peek_char()? == 'e' {
+        if self.peek_char()? == &b'e' {
             return Ok(None);
         }
         // Deserialize a map key.
@@ -482,6 +528,6 @@ impl<'de> MapAccess<'de> for Deserializer<'de> {
         V: de::DeserializeSeed<'de>,
     {
         // Deserialize a map value.
-        seed.deserialize(&mut *self)
+        seed.deserialize(self)
     }
 }

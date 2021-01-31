@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic, clippy::nursery)]
+
 //! This crate is used for encoding and decoding of bencoded variables.
 //! ```
 //! use bencoding::{to_string, from_str};
@@ -16,5 +18,5 @@ pub mod err;
 mod de;
 mod ser;
 
-pub use de::from_str;
+pub use de::{from_bytes, from_str};
 pub use ser::to_string;
