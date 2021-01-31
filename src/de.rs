@@ -121,7 +121,6 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-
     // Not actually used, due to lifetime issues
     /*
     // Parse a string until the next '"' character.
@@ -295,11 +294,29 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     // The `Serializer` implementation on the previous page serialized byte
     // arrays as JSON arrays of bytes. Handle that representation here.
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        unimplemented!()
+        let s = {
+            match self.input.iter().position(|b| b == &b':') {
+                Some(count) => {
+                    let (length, rest_of) = self.input.split_at(count);
+                    let len = match std::str::from_utf8(length).unwrap().parse::<usize>() {
+                        // Add one to help ignore the added space from ':'
+                        Ok(t) => t + 1,
+                        Err(_) => return Err(DeBencodingError::ParseIntError),
+                    };
+                    // Make to_return between the colon, and the end of the second string
+                    let to_return = &rest_of[1..len];
+                    // Remove the used string
+                    self.input = &self.input[count + len..];
+                    Ok(to_return)
+                }
+                None => Err(DeBencodingError::NoFoundColon),
+            }
+        }?;
+        visitor.visit_bytes(s.as_ref())
     }
 
     fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
