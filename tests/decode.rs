@@ -22,19 +22,19 @@ fn decode_string() {
 fn decode_int() {
     let encoded = "i52e";
 
-    assert_eq!(52, bencoding::from_str(encoded).unwrap());
+    assert_eq!(52i32, bencoding::from_str(encoded).unwrap());
 
     let encoded = "i-52e";
 
-    assert_eq!(-52, bencoding::from_str(encoded).unwrap());
+    assert_eq!(-52i32, bencoding::from_str(encoded).unwrap());
 
     let encoded = "i0e";
 
-    assert_eq!(0, bencoding::from_str(encoded).unwrap());
+    assert_eq!(0i32, bencoding::from_str(encoded).unwrap());
 
     let encoded = "i-0e";
 
-    assert_eq!(0, bencoding::from_str(encoded).unwrap());
+    assert_eq!(0i32, bencoding::from_str(encoded).unwrap());
 }
 
 #[test]
@@ -83,4 +83,9 @@ fn person_decode() {
     let decoded = StructContainingVec::from(vec![5, 24, 16, 178]);
 
     assert_eq!(decoded, bencoding::from_str(encoded).unwrap());
+}
+
+#[test]
+fn torrent_decode() {
+    let _file = include_bytes!("./alice.torrent");
 }

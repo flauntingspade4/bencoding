@@ -2,16 +2,18 @@ use std::fmt::Display;
 
 pub type Result<T> = std::result::Result<T, DeBencodingError>;
 
+#[derive(Debug, Clone)]
 pub enum DeBencodingError {
     /// Trailing characters after deserializing
     TrailingCharacters,
     /// A unrecognized type indicator, the supported
-    /// being 'i' for integers, 'l' for lists, and
-    /// any number for strings, the number indicating
-    /// how long the string's data should be
+    /// being 'i' for integers, 'l' for lists, 'd' for
+    /// dictionaries and an integer for strings, indicating
+    /// it's length
     UnexpectedCharType(char),
-    /// The colon hasn't been found while parsing a
-    /// string
+    /// Strings are of the format `length:value`. This error
+    /// indicates the colon between length and value hasn't been
+    /// found
     NoFoundColon,
     /// An error related to parsing an integer
     ParseIntError,
@@ -33,10 +35,15 @@ pub enum DeBencodingError {
     /// Expected a char
     ExpectedChar,
     /// A generic error type for serde
-    Message(String),
+    SerdeError(String),
+    /// Only integer, list, string and dictionaries are supported
+    UnsupportedValueType,
+    /// A deserializer was attempted to be constructed using bytes
+    /// that were not valid utf8
+    InputNotUtf8,
 }
 
-impl std::fmt::Debug for DeBencodingError {
+impl std::fmt::Display for DeBencodingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::TrailingCharacters => write!(f, "Unexpected trailing characters"),
@@ -59,14 +66,13 @@ impl std::fmt::Debug for DeBencodingError {
             Self::ExpectedInt => write!(f, "An integer was expected, but not provided"),
             Self::ExpectedNull => write!(f, "Expected a null value"),
             Self::ExpectedChar => write!(f, "Expected a char"),
-            Self::Message(s) => write!(f, "Serde error {}", s),
+            Self::SerdeError(s) => write!(f, "Serde error {}", s),
+            Self::UnsupportedValueType => write!(
+                f,
+                "Only integer, list, string and dictionaries are supported"
+            ),
+            Self::InputNotUtf8 => write!(f, "A deserializer was attempted to be constructed using bytes that were not valid utf8"),
         }
-    }
-}
-
-impl std::fmt::Display for DeBencodingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
     }
 }
 
@@ -74,12 +80,12 @@ impl std::error::Error for DeBencodingError {}
 
 impl serde::ser::Error for DeBencodingError {
     fn custom<T: Display>(msg: T) -> Self {
-        Self::Message(msg.to_string())
+        Self::SerdeError(msg.to_string())
     }
 }
 
 impl serde::de::Error for DeBencodingError {
     fn custom<T: Display>(msg: T) -> Self {
-        Self::Message(msg.to_string())
+        Self::SerdeError(msg.to_string())
     }
 }
