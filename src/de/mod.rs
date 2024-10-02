@@ -5,7 +5,10 @@ use std::ops::Neg;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
 
-use crate::err::{DeBencodingError, Result};
+mod err;
+
+pub use err::BencodingDeserializeError;
+type Result<T> = std::result::Result<T, BencodingDeserializeError>;
 
 pub struct Deserializer<'de> {
     // The data being deserialized
@@ -44,7 +47,7 @@ where
     if deserializer.offset == deserializer.input.len() {
         Ok(t)
     } else {
-        Err(DeBencodingError::TrailingCharacters)
+        Err(BencodingDeserializeError::TrailingCharacters)
     }
 }
 
@@ -63,14 +66,16 @@ where
     if deserializer.offset == deserializer.input.len() {
         Ok(t)
     } else {
-        Err(DeBencodingError::TrailingCharacters)
+        Err(BencodingDeserializeError::TrailingCharacters)
     }
 }
 
 impl<'de: 'a, 'a> Deserializer<'de> {
     /// Peeks at the next byte in the input without consuming it
     fn peek_byte(&self) -> Result<&u8> {
-        self.input.get(self.offset).ok_or(DeBencodingError::Eof)
+        self.input
+            .get(self.offset)
+            .ok_or(BencodingDeserializeError::OutOfCharacters)
     }
 
     /// Returns and consumes the byte at the current offset
@@ -85,7 +90,7 @@ impl<'de: 'a, 'a> Deserializer<'de> {
         let bytes = &self
             .input
             .get(self.offset..self.offset + len)
-            .ok_or(DeBencodingError::Eof)?;
+            .ok_or(BencodingDeserializeError::OutOfCharacters)?;
 
         self.offset += len;
 
@@ -93,7 +98,8 @@ impl<'de: 'a, 'a> Deserializer<'de> {
     }
 
     fn read_string(&mut self, len: usize) -> Result<&'a str> {
-        std::str::from_utf8(self.read_bytes(len)?).map_err(|_| DeBencodingError::InputNotUtf8)
+        std::str::from_utf8(self.read_bytes(len)?)
+            .map_err(|_| BencodingDeserializeError::InputNotUtf8)
     }
 
     /// Read bytes from the input until it reaches a non-numeric ascii byte, then
@@ -105,13 +111,13 @@ impl<'de: 'a, 'a> Deserializer<'de> {
         // Find the first non ascii-numeric byte
         let end_index = self
             .position_next(|&c| !('0'..'9').contains(&(c as char)))
-            .ok_or(DeBencodingError::NoFoundClosingDeliminator)?;
+            .ok_or(BencodingDeserializeError::NoFoundClosingDeliminator(':'))?;
 
         let ascii_string = std::str::from_utf8(&self.input[self.offset..end_index])
             .expect("Trying to read integer that is not valid ascii");
 
         let result = <T as Num>::from_str_radix(ascii_string, 10)
-            .map_err(|_| DeBencodingError::ParseIntError);
+            .map_err(|_| BencodingDeserializeError::ParseIntError);
 
         self.offset = end_index;
 
@@ -123,7 +129,7 @@ impl<'de: 'a, 'a> Deserializer<'de> {
         T: PrimInt + Display,
     {
         if self.read_byte()? != b'i' {
-            return Err(DeBencodingError::NoFoundOpeningDeliminator);
+            return Err(BencodingDeserializeError::NoFoundOpeningDeliminator('i'));
         }
 
         let result = self.read_integer::<T>();
@@ -131,7 +137,7 @@ impl<'de: 'a, 'a> Deserializer<'de> {
         if self.read_byte()? == b'e' {
             result
         } else {
-            Err(DeBencodingError::NoFoundClosingDeliminator)
+            Err(BencodingDeserializeError::NoFoundClosingDeliminator('e'))
         }
     }
 
@@ -142,7 +148,7 @@ impl<'de: 'a, 'a> Deserializer<'de> {
         T: PrimInt + Neg<Output = T> + Display,
     {
         if self.read_byte()? != b'i' {
-            return Err(DeBencodingError::NoFoundOpeningDeliminator);
+            return Err(BencodingDeserializeError::NoFoundOpeningDeliminator('i'));
         }
 
         let result = if *self.peek_byte()? == b'-' {
@@ -155,7 +161,7 @@ impl<'de: 'a, 'a> Deserializer<'de> {
         if self.read_byte()? == b'e' {
             Ok(result)
         } else {
-            Err(DeBencodingError::NoFoundClosingDeliminator)
+            Err(BencodingDeserializeError::NoFoundClosingDeliminator('e'))
         }
     }
 
@@ -163,7 +169,7 @@ impl<'de: 'a, 'a> Deserializer<'de> {
         let bytes_len = self.read_integer::<usize>()?;
 
         if self.read_byte()? != b':' {
-            return Err(DeBencodingError::NoFoundColon);
+            return Err(BencodingDeserializeError::NoFoundColon);
         }
 
         self.read_bytes(bytes_len)
@@ -173,7 +179,7 @@ impl<'de: 'a, 'a> Deserializer<'de> {
         let str_len = self.read_integer::<usize>()?;
 
         if self.read_byte()? != b':' {
-            return Err(DeBencodingError::NoFoundColon);
+            return Err(BencodingDeserializeError::NoFoundColon);
         }
 
         self.read_string(str_len)
@@ -190,7 +196,7 @@ impl<'de: 'a, 'a> Deserializer<'de> {
 }
 
 impl<'de: 'a, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
-    type Error = DeBencodingError;
+    type Error = BencodingDeserializeError;
 
     // Look at the input data to decide what Serde data model type to
     // deserialize as. Not all data formats are able to support this operation.
@@ -206,7 +212,7 @@ impl<'de: 'a, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             'i' => self.deserialize_i64(visitor),
             'l' => self.deserialize_seq(visitor),
             'd' => self.deserialize_map(visitor),
-            c => Err(DeBencodingError::UnexpectedCharType(c)),
+            c => Err(BencodingDeserializeError::InvalidTypeOther(c)),
         }
     }
 
@@ -214,7 +220,7 @@ impl<'de: 'a, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(DeBencodingError::UnexpectedCharType('b'))
+        Err(BencodingDeserializeError::InvalidTypeBool)
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
@@ -360,7 +366,7 @@ impl<'de: 'a, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             //self.input = self.input.split_off("null".len());
             visitor.visit_unit()
         } else {
-            Err(DeBencodingError::ExpectedNull)
+            Err(BencodingDeserializeError::ExpectedNull)
         }
     }
 
@@ -397,10 +403,10 @@ impl<'de: 'a, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             if self.read_byte()? == b'e' {
                 Ok(value)
             } else {
-                Err(DeBencodingError::NoFoundClosingDeliminator)
+                Err(BencodingDeserializeError::NoFoundClosingDeliminator('e'))
             }
         } else {
-            Err(DeBencodingError::NoFoundOpeningDeliminator)
+            Err(BencodingDeserializeError::NoFoundOpeningDeliminator('l'))
         }
     }
 
@@ -445,10 +451,10 @@ impl<'de: 'a, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             if self.read_byte()? == b'e' {
                 Ok(value)
             } else {
-                Err(DeBencodingError::NoFoundClosingDeliminator)
+                Err(BencodingDeserializeError::NoFoundClosingDeliminator('e'))
             }
         } else {
-            Err(DeBencodingError::NoFoundOpeningDeliminator)
+            Err(BencodingDeserializeError::NoFoundOpeningDeliminator('d'))
         }
     }
 
@@ -507,7 +513,7 @@ impl<'de: 'a, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 }
 
 impl<'de> SeqAccess<'de> for Deserializer<'de> {
-    type Error = DeBencodingError;
+    type Error = BencodingDeserializeError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
@@ -523,7 +529,7 @@ impl<'de> SeqAccess<'de> for Deserializer<'de> {
 }
 
 impl<'de> MapAccess<'de> for Deserializer<'de> {
-    type Error = DeBencodingError;
+    type Error = BencodingDeserializeError;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where

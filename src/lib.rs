@@ -13,10 +13,8 @@
 //! assert_eq!("i5e", to_string(&example_int).unwrap()); // 5 is encoded as "i5e"
 //! ```
 
-pub mod err;
-
-mod de;
-mod ser;
+pub mod de;
+pub mod ser;
 
 pub use de::{from_bytes, from_str};
 pub use ser::to_string;

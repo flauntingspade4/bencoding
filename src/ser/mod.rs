@@ -1,6 +1,9 @@
 use serde::{ser, Serialize};
 
-use crate::err::{DeBencodingError, Result};
+mod err;
+
+pub use err::BencodingSerializeError;
+type Result<T> = std::result::Result<T, BencodingSerializeError>;
 
 pub struct Serializer {
     // This string starts empty and bencode is appended as values are serialized.
@@ -18,6 +21,7 @@ where
     let mut serializer = Serializer {
         output: String::new(),
     };
+
     value.serialize(&mut serializer)?;
     Ok(serializer.output)
 }
@@ -32,7 +36,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type Ok = ();
 
     // The DeBencodingError type when some DeBencodingError occurs during serialization.
-    type Error = DeBencodingError;
+    type Error = BencodingSerializeError;
 
     // Associated types for keeping track of additional state while serializing
     // compound data structures like sequences and maps. In this case no
@@ -46,9 +50,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
-    // Here we go with the simple methods. The following 12 methods receive one
-    // of the primitive types of the data model and map it to bencode by appending
-    // into the output string.
     fn serialize_bool(self, _v: bool) -> Result<()> {
         panic!("This version of bencoding doesn't support bools");
     }
@@ -279,10 +280,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 // This impl is SerializeSeq so these methods are called after `serialize_seq`
 // is called on the Serializer.
 impl<'a> ser::SerializeSeq for &'a mut Serializer {
-    // Must match the `Ok` type of the serializer.
     type Ok = ();
-    // Must match the `DeBencodingError` type of the serializer.
-    type Error = DeBencodingError;
+
+    type Error = BencodingSerializeError;
 
     // Serialize a single element of the sequence.
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
@@ -302,7 +302,7 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
 // Same thing but for tuples.
 impl<'a> ser::SerializeTuple for &'a mut Serializer {
     type Ok = ();
-    type Error = DeBencodingError;
+    type Error = BencodingSerializeError;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
@@ -320,7 +320,7 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
 // Same thing but for tuple structs.
 impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
     type Ok = ();
-    type Error = DeBencodingError;
+    type Error = BencodingSerializeError;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
@@ -346,7 +346,7 @@ impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
 // the `}`.
 impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
     type Ok = ();
-    type Error = DeBencodingError;
+    type Error = BencodingSerializeError;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
@@ -371,7 +371,7 @@ impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
 // difference so the default behavior for `serialize_entry` is fine.
 impl<'a> ser::SerializeMap for &'a mut Serializer {
     type Ok = ();
-    type Error = DeBencodingError;
+    type Error = BencodingSerializeError;
 
     // The Serde data model allows map keys to be any serializable type. bencode
     // only allows string keys so the implementation below will produce invalid
@@ -408,7 +408,7 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
 // constant strings.
 impl<'a> ser::SerializeStruct for &'a mut Serializer {
     type Ok = ();
-    type Error = DeBencodingError;
+    type Error = BencodingSerializeError;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
@@ -428,7 +428,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
 // closing both of the curly braces opened by `serialize_struct_variant`.
 impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
     type Ok = ();
-    type Error = DeBencodingError;
+    type Error = BencodingSerializeError;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
